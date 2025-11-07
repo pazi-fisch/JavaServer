@@ -1,8 +1,15 @@
 package org.example.db;
 
+import com.google.gson.JsonObject;
+
 import java.util.Date;
 
 public class Note {
+
+    public static final String JSON_ID_KEY = "id";
+    public static final String JSON_TITLE_KEY = "title";
+    public static final String JSON_CONTENT_KEY = "content";
+    public static final String JSON_TIMESTAMP_KEY = "timestamp";
 
     private int id = -1;
     private String title = null;
@@ -77,6 +84,19 @@ public class Note {
             isValid = true;
         }
         return isValid;
+    }
+
+    /**
+     * Parse the data contained in this Note as JSONObject
+     */
+    public JsonObject toJsonObject() {
+        JsonObject jsonNote = new JsonObject();
+        // add each property one by one
+        jsonNote.addProperty(Note.JSON_ID_KEY, this.id);
+        jsonNote.addProperty(Note.JSON_TITLE_KEY, this.title);
+        jsonNote.addProperty(Note.JSON_CONTENT_KEY, this.content);
+        jsonNote.addProperty(Note.JSON_TIMESTAMP_KEY, this.timestamp);
+        return jsonNote;
     }
 
 }

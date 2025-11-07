@@ -10,21 +10,22 @@ import java.net.InetSocketAddress;
  */
 public class Server {
 
-    // server port and REST API path
+    // server port
     private static final int SERVER_PORT = 8000;
-    private static final String NOTES_PATH = "/api/notes";
 
     private HttpServer server = null;
 
     /**
      * Create a new server instance, without starting it.
+     * To start it call <code>startServer()</code>.
+     * To stop it call <code>stopServer()</code>.
      */
     public Server() throws Exception {
         // create the server, with basic executor
         this.server = HttpServer.create(new InetSocketAddress(Server.SERVER_PORT), 0);
         this.server.setExecutor(null);
         // assign the handler to handle all note requests
-        this.server.createContext(Server.NOTES_PATH, new NoteRequestHandler());
+        this.server.createContext(NoteRequestHandler.REQUEST_PATH, new NoteRequestHandler());
     }
 
     /**

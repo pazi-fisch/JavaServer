@@ -6,7 +6,7 @@ import java.util.ArrayList;
 /**
  * Handles connection/access to the DB.
  * To open and gain access to the DB call <code>Database.getInstance()</code> first.
- * When done, disconnect/close the DB through <code>Database.closeDB()</code>.
+ * When done, disconnect/close the DB through <code>closeDB()</code>.
  */
 public class Database {
 
@@ -138,13 +138,14 @@ public class Database {
         Note note = null;
         // retrieve Note with given ID from DB
         String sql = "SELECT * FROM " + Database.NOTE_TABLE + " WHERE " + Database.NOTE_ID_FIELD + " = ?";
-        Statement statement = this.connection.createStatement();
-        ResultSet resultSet = statement.executeQuery(sql);
+        PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
+        preparedStatement.setInt(1, id);
+        ResultSet resultSet = preparedStatement.executeQuery();
         // parse found ResultSet to Note
         note = this.resultSetToNote(resultSet);
         // done, close
         resultSet.close();
-        statement.close();
+        preparedStatement.close();
         return note;
     }
 
