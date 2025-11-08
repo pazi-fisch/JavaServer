@@ -8,9 +8,8 @@ import com.sun.net.httpserver.HttpHandler;
 import org.example.db.Database;
 import org.example.db.Note;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
+import java.net.HttpURLConnection;
 import java.util.ArrayList;
 
 /**
@@ -26,9 +25,11 @@ public class NoteRequestHandler implements HttpHandler {
     private static final String PUT_REQUEST = "PUT";
     private static final String DELETE_REQUEST = "DELETE";
 
+    private static final String RESPONSE_SUCCESS = "success";
+    private static final String RESPONSE_RESULT = "result";
+
     @Override
     public void handle(HttpExchange exchange) {
-        String response = null;
         try {
             // parse the request
             switch (exchange.getRequestMethod()) {
@@ -38,31 +39,35 @@ public class NoteRequestHandler implements HttpHandler {
                     break;
                 case NoteRequestHandler.POST_REQUEST:
                     // POST
-                    response = this.handlePostRequest();
-                    this.sendResponse(exchange, response);
+                    this.handlePostRequest(exchange);
                     break;
                 case NoteRequestHandler.PUT_REQUEST:
-                    // POST
-                    response = this.handlePutRequest();
-                    this.sendResponse(exchange, response);
+                    // PUT
+                    this.handlePutRequest(exchange);
                     break;
                 case NoteRequestHandler.DELETE_REQUEST:
                     // DELETE
-                    response = this.handleDeleteRequest();
-                    this.sendResponse(exchange, response);
+                    this.handleDeleteRequest(exchange);
                     break;
                 default:
                     // unknown method
-                    exchange.sendResponseHeaders(405, -1);
+                    exchange.sendResponseHeaders(HttpURLConnection.HTTP_BAD_METHOD, -1);
             }
+        } catch (Exception e) {
+            // something went wrong, respond with an error
+            try {this.sendFailureResponse(exchange, e.getClass() + " : " + e.getMessage()); } catch (Exception ignored) { ; }
+            e.printStackTrace();
+        } finally {
             // done, close
             exchange.close();
-        } catch (Exception e) {
-            // FIXME something went wrong
-            e.printStackTrace();
         }
     }
 
+    /**
+     * Returns the desires note(s).
+     * If on whole collection returns an array of Note objects.
+     * If on a singleton returns the Note object itself.
+     */
     private void handleGetRequest(HttpExchange exchange) throws Exception {
         JsonObject response = new JsonObject();
         // check the URI to parse the request: collection or singleton?
@@ -76,7 +81,7 @@ public class NoteRequestHandler implements HttpHandler {
                 for (Note note : notes) {
                     jsonArray.add(note.toJsonObject());
                 }
-                response = jsonArray.getAsJsonObject();
+                response.add(NoteRequestHandler.RESPONSE_RESULT, jsonArray);
             }
         } else {
             // singleton, parse the ID and get the note
@@ -88,47 +93,91 @@ public class NoteRequestHandler implements HttpHandler {
             }
         }
         // reply with the retrieved data
-        this.sendResponse(exchange, response.toString());
+        this.sendSuccessResponse(exchange, response.toString());
     }
 
-    private String handlePostRequest() {
-        String response = "POST";
-        return response;
+    /**
+     * Adds the passed JSON data as new Note.
+     */
+    private void handlePostRequest(HttpExchange exchange) throws Exception {
+        // parse the passed JSON as Note
+        JsonObject jsonNote = this.requestBodyToJSON(exchange);
+        Note note = new Note(jsonNote.get(Note.JSON_TITLE_KEY).getAsString(), jsonNote.get(Note.JSON_CONTENT_KEY).getAsString());
+        // add it to the DB
+        Database.getInstance().addNote(note);
+        // reply with success
+        this.sendSuccessResponse(exchange, NoteRequestHandler.RESPONSE_SUCCESS);
     }
 
-    private String handlePutRequest() {
-        String response = "PUT";
-        return response;
+    /**
+     * Updates the specified singleton/Note with the passed JSON data.
+     */
+    private void handlePutRequest(HttpExchange exchange) throws Exception {
+        // parse the ID from the path
+        String path = exchange.getRequestURI().getPath();
+        int id = this.parseSingletonFromPath(path);
+        // parse the passed JSON as Note, with corresponding ID
+        JsonObject jsonNote = this.requestBodyToJSON(exchange);
+        Note note = new Note(id, jsonNote.get(Note.JSON_TITLE_KEY).getAsString(), jsonNote.get(Note.JSON_CONTENT_KEY).getAsString(), -1);
+        // update the Note in the DB
+        Database.getInstance().updateNote(note);
+        // reply with success
+        this.sendSuccessResponse(exchange, NoteRequestHandler.RESPONSE_SUCCESS);
     }
 
-    private String handleDeleteRequest() {
-        String response = "DELETE";
-        return response;
+    /**
+     * Deletes the specified singleton/Note.
+     */
+    private void handleDeleteRequest(HttpExchange exchange) throws Exception {
+        // parse the ID from the path
+        String path = exchange.getRequestURI().getPath();
+        int id = this.parseSingletonFromPath(path);
+        // delete the corresponding Note in the DB
+        Database.getInstance().deleteNote(id);
+        // reply with success
+        this.sendSuccessResponse(exchange, NoteRequestHandler.RESPONSE_SUCCESS);
     }
 
     /**
      * Parses the request body of an HttpExchange as JSON.
      */
-    private JsonObject requestBodyToJSON(HttpExchange exchange) {
+    private JsonObject requestBodyToJSON(HttpExchange exchange) throws Exception {
         JsonObject jsonObject = null;
-        try {
-            // try to parse the request body as JSON
-            InputStreamReader inputStreamReader = new InputStreamReader(exchange.getRequestBody());
-            jsonObject = JsonParser.parseReader(inputStreamReader).getAsJsonObject();
-            // done, close
-            inputStreamReader.close();
-        } catch (Exception ignored) { ; }
+        // try to parse the request body as JSON
+        InputStreamReader inputStreamReader = new InputStreamReader(exchange.getRequestBody());
+        jsonObject = JsonParser.parseReader(inputStreamReader).getAsJsonObject();
+        // done, close
+        inputStreamReader.close();
         return jsonObject;
     }
 
     /**
-     * Send the response for the exchange, with code 200 - OK.
+     * Send custom response/code for the exchange.
      */
-    private void sendResponse(HttpExchange exchange, String response) throws IOException {
-        exchange.sendResponseHeaders(200, response.getBytes().length);
+    private void sendResponse(HttpExchange exchange, String response, int code) throws Exception {
+        // append newline, if it doesn't end with one
+        if (response != null && !response.endsWith("\n")) {
+            response = response + "\n";
+        }
+        // send the provided response/code
+        exchange.sendResponseHeaders(code, response.getBytes().length);
         OutputStream outputStream = exchange.getResponseBody();
         outputStream.write(response.getBytes());
         outputStream.flush();
+    }
+
+    /**
+     * Send successful response for the exchange, with code 200 - OK.
+     */
+    private void sendSuccessResponse(HttpExchange exchange, String response) throws Exception {
+        this.sendResponse(exchange, response, HttpURLConnection.HTTP_OK);
+    }
+
+    /**
+     * Send failure response for the exchange, with code 500 - internal error.
+     */
+    private void sendFailureResponse(HttpExchange exchange, String response) throws Exception {
+        this.sendResponse(exchange, response, HttpURLConnection.HTTP_INTERNAL_ERROR);
     }
 
     /**
