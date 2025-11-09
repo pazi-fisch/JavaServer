@@ -31,8 +31,14 @@ public class NoteRequestHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) {
+        // set CORS policy
+        // without this clients won't be able to access
+        Headers headers = exchange.getResponseHeaders();
+        headers.add("Access-Control-Allow-Origin", "*");
+        headers.add("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE");
+        headers.add("Access-Control-Allow-Headers", "Content-Type");
+        // parse and handle the request
         try {
-            // parse the request
             switch (exchange.getRequestMethod()) {
                 case NoteRequestHandler.GET_REQUEST:
                     // GET
@@ -70,14 +76,8 @@ public class NoteRequestHandler implements HttpHandler {
      * If on a singleton returns the Note object itself.
      */
     private void handleGetRequest(HttpExchange exchange) throws Exception {
-        // set CORS policy
-        // without this clients won't be able to access
-        Headers headers = exchange.getResponseHeaders();
-        headers.add("Access-Control-Allow-Origin", "*");
-        headers.add("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE");
-        headers.add("Access-Control-Allow-Headers", "Content-Type");
-        // check the URI to parse the request: collection or singleton?
         JsonObject response = new JsonObject();
+        // check the URI to parse the request: collection or singleton?
         String path = exchange.getRequestURI().getPath();
         if (path.contentEquals(NoteRequestHandler.REQUEST_PATH)) {
             // collection, get all notes
