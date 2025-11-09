@@ -3,6 +3,7 @@ package org.example.server;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.example.db.Database;
@@ -69,8 +70,14 @@ public class NoteRequestHandler implements HttpHandler {
      * If on a singleton returns the Note object itself.
      */
     private void handleGetRequest(HttpExchange exchange) throws Exception {
-        JsonObject response = new JsonObject();
+        // set CORS policy
+        // without this clients won't be able to access
+        Headers headers = exchange.getResponseHeaders();
+        headers.add("Access-Control-Allow-Origin", "*");
+        headers.add("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE");
+        headers.add("Access-Control-Allow-Headers", "Content-Type");
         // check the URI to parse the request: collection or singleton?
+        JsonObject response = new JsonObject();
         String path = exchange.getRequestURI().getPath();
         if (path.contentEquals(NoteRequestHandler.REQUEST_PATH)) {
             // collection, get all notes
