@@ -25,6 +25,7 @@ public class NoteRequestHandler implements HttpHandler {
     private static final String POST_REQUEST = "POST";
     private static final String PUT_REQUEST = "PUT";
     private static final String DELETE_REQUEST = "DELETE";
+    private static final String OPTIONS_REQUEST = "OPTIONS";
 
     private static final String RESPONSE_SUCCESS = "success";
     private static final String RESPONSE_RESULT = "result";
@@ -35,7 +36,7 @@ public class NoteRequestHandler implements HttpHandler {
         // without this clients won't be able to access
         Headers headers = exchange.getResponseHeaders();
         headers.add("Access-Control-Allow-Origin", "*");
-        headers.add("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE");
+        headers.add("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS");
         headers.add("Access-Control-Allow-Headers", "Content-Type");
         // parse and handle the request
         try {
@@ -55,6 +56,10 @@ public class NoteRequestHandler implements HttpHandler {
                 case NoteRequestHandler.DELETE_REQUEST:
                     // DELETE
                     this.handleDeleteRequest(exchange);
+                    break;
+                case NoteRequestHandler.OPTIONS_REQUEST:
+                    // OPTIONS, required for CORS policy
+                    exchange.sendResponseHeaders(HttpURLConnection.HTTP_NO_CONTENT, -1);
                     break;
                 default:
                     // unknown method
